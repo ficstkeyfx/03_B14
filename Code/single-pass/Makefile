@@ -1,0 +1,90 @@
+
+#DATA=fb
+KMIN=100
+KMAX=10000
+KINC=1000
+#BIN=revmax
+ifeq (${BIN},maxcut)
+	RUN=run.bash
+	PLOT=plot.py
+else
+	RUN=run-revmax.bash
+	PLOT=revmax-plot.py
+endif
+
+ifeq (${DATA},pokec) 
+	objects=${BIN}results-${DATA}-SG.txt ${BIN}results-${DATA}-AEFNS.txt ${BIN}results-${DATA}-FKK.txt ${BIN}results-${DATA}-LS.txt ${BIN}results-${DATA}-LS+.txt
+else #include LRVZ
+	#objects=${BIN}results-${DATA}-SG.txt ${BIN}results-${DATA}-AEFNS.txt ${BIN}results-${DATA}-FKK.txt ${BIN}results-${DATA}-LRVZ.txt ${BIN}results-${DATA}-LS.txt ${BIN}results-${DATA}-LS+.txt
+	objects=${BIN}results-${DATA}-SG.txt ${BIN}results-${DATA}-AEFNS.txt ${BIN}results-${DATA}-FKK.txt ${BIN}results-${DATA}-LS.txt ${BIN}results-${DATA}-LS+.txt
+endif
+
+ifeq (${DATA},slashdot) 
+	objects=${BIN}results-${DATA}-SG.txt ${BIN}results-${DATA}-AEFNS.txt ${BIN}results-${DATA}-FKK.txt ${BIN}results-${DATA}-LS.txt ${BIN}results-${DATA}-LS+.txt
+endif
+
+all: ${BIN}${DATA}
+	bash copy_figs.bash
+	echo "make DATA=<data> BIN=<bin>"
+er.bin:
+	../../er 5000 .01 er.txt
+	../../preproc er.txt er.bin
+	rm -f er.txt
+ba.bin:
+	../../ba 5000 3 ba.txt
+	../../preproc ba.txt ba.bin
+	rm -rf ba.txt
+pokec.bin:
+	wget http://snap.stanford.edu/data/soc-pokec-relationships.txt.gz
+	gunzip soc-pokec-relationships.txt.gz
+	../../preproc soc-pokec-relationships.txt pokec.bin
+	rm -f soc-pokec-relationships.txt
+slashdot.bin:
+	wget http://snap.stanford.edu/data/soc-Slashdot0811.txt.gz
+	gunzip soc-Slashdot0811.txt.gz
+	../../preproc soc-Slashdot0811.txt slashdot.bin
+	rm -f soc-Slashdot0811.txt
+astro.bin:
+	wget http://snap.stanford.edu/data/ca-AstroPh.txt.gz
+	gunzip ca-AstroPh.txt.gz
+	../../preproc ca-AstroPh.txt astro.bin
+	rm -f ca-AstroPh.txt
+fb.bin:
+	wget http://snap.stanford.edu/data/facebook_combined.txt.gz
+	gunzip facebook_combined.txt.gz
+	../../preproc facebook_combined.txt fb.bin
+	rm -f facebook_combined.txt
+${BIN}results-${DATA}-SG.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} G
+${BIN}results-${DATA}-AEFNS.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} A
+${BIN}results-${DATA}-FKK.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} F
+${BIN}results-${DATA}-LRVZ.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} L
+${BIN}results-${DATA}-LS.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} Q 1 0
+${BIN}results-${DATA}-LS+.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} Q 1 1
+${BIN}results-${DATA}-QS++-c4.txt: ${DATA}.bin  
+	rm -f $@
+	bash ${RUN} ${DATA} ${DATA}.bin ${KMIN} ${KMAX} ${KINC} Q 4 1
+${BIN}val-${DATA}.pdf:  ${PLOT} ${objects}
+	python3 ${PLOT} v 1 $(objects)
+${BIN}query-${DATA}.pdf: ${PLOT} $(objects)
+	python3 ${PLOT} q 0 $(objects)
+${BIN}mem-${DATA}.pdf: ${PLOT} $(objects)
+	python3 ${PLOT} m 0 $(objects)
+
+${BIN}${DATA}: ${BIN}val-${DATA}.pdf ${BIN}query-${DATA}.pdf ${BIN}mem-${DATA}.pdf 
+
+clean:
+	rm -f *.pdf
+	rm -f *.txt
+

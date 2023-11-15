@@ -1,0 +1,225 @@
+import matplotlib
+#matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import sys
+import statistics
+import os.path
+
+which=0; # 0 = solValue
+if (len(sys.argv) == 1):
+    print("usage: plot [vqm] [printLegend:1 or 0] <results filenames>");
+    exit();
+
+###parse arguments
+fnames=[];
+algnames=[];
+nalgs=0;
+for i in range(3, len(sys.argv)):
+    arg=sys.argv[i];
+    fnames.append( arg );
+    pos = arg.find('-');
+    arg = arg[pos+1:];
+    pos = arg.find('-');
+    dataname=arg[0:pos];
+    arg = arg[pos+1:];
+    pos = arg.find('.txt');
+    alg = arg[0:pos];
+    algnames.append( alg );
+    nalgs = nalgs + 1;
+
+normalizeX=False;
+
+if (sys.argv[2][0] == '1'):
+    printlegend=True;
+else:
+    printlegend=False;
+    
+scaleDiv=1;
+normalize=False;
+
+postfix='.pdf';
+if (sys.argv[1][0] == 'v'):
+    outFName='maxcutval-' + dataname + postfix;
+    colObj = 10;
+    colObjStd = 11;
+    scaleDiv=1;
+    normalize=True;
+    which=0;
+else:
+    if (sys.argv[1][0] == 'q'):
+        which = 1; #1 = queries
+        outFName='maxcutquery-' + dataname + postfix;
+        colObj = 8;
+        colObjStd = 9;
+    else:
+        if (sys.argv[1][0] == 'm'):
+            which = 2; #1 = queries
+            outFName='maxcutmem-' + dataname + postfix;
+            colObj = 4;
+            colObjStd = 5;
+
+colX = 2;
+colN = 6;
+
+colors = {
+    "AEFNS":"xkcd:grey",
+    "FKK":"xkcd:grey",
+    "LRVZ":"xkcd:grey",
+    "LS":"black",
+    "LS+":"xkcd:gold" };
+
+markers = {
+    "AEFNS": "$A$", #"tri_down",
+    "FKK":"$F$", #"tri_right",
+    "LRVZ":"$L$", #"tri_left",
+    "LS":"*", #"star",
+    "LS+":"*" #"star"
+    }
+
+X = [];
+Obj = [];
+ObjStd = [];
+skip = [ False for i in range(0,nalgs) ];
+nodes = 0;
+kmin=0;
+for i in range( 0, nalgs ):
+    fname = fnames[ i ];
+
+    if (os.path.isfile( fname )):
+        skip[i]=False;
+        print ("Reading from file", fname);
+        with open(fname) as f:
+            lines = f.readlines();
+            XN = [float(line.split()[ colN ]) for line in lines if line[0] != '#']
+            if (len(XN) > 0):
+                nodes = XN[0];
+                XS = [float(line.split()[ colX ]) for line in lines if line[0] != '#']
+                SObj = [float(line.split()[ colObj ])/scaleDiv for line in lines if line[0] != '#']
+                SObjStd = [float(line.split()[ colObjStd ])/scaleDiv for line in lines if line[0] != '#']
+            else:
+                XS = [float(kmin)];
+                SObj = [float('nan')];
+                SObjStd = [float('nan')];
+        
+    else:
+        if i == 0: #noGreedy
+            normalize=False;
+        skip[i]=True;
+        XS = [float(kmin)];
+        SObj = [float('nan')];
+        SObjStd = [float('nan')];
+    X.append( XS );
+    Obj.append (SObj);
+    ObjStd.append( SObjStd );
+
+
+#if normalize:
+for i in range( 1, nalgs ):
+    if normalize:
+        for j in range( 0, len( Obj[ i ] ) ):
+            Obj[i][j] = Obj[i][j] / Obj[0][j];
+            ObjStd[i][j] = ObjStd[i][j] / Obj[0][j];
+
+    print( algnames[i], min( Obj[i] ), max(Obj[i]),
+               statistics.mean( Obj[i] ) );
+
+   
+plt.gcf().clear();
+plt.rcParams['pdf.fonttype'] = 42;
+plt.rcParams.update({'font.size': 24});
+plt.rcParams.update({'font.weight': "bold"});
+plt.rcParams["axes.labelweight"] = "bold";
+plt.xscale('log');
+
+
+#plt.ticklabel_format(axis='both', style='sci' );
+if (which == 1):
+    print (nodes);
+    plt.ylabel( 'Queries / $n$' );
+    plt.yscale('log');
+    for i in range( 1, nalgs ):
+            for j in range( 0, len( Obj[ i ] ) ):
+                Obj[i][j] = Obj[i][j] / nodes;
+                ObjStd[i][j] = ObjStd[i][j] / nodes;
+else:
+    if (which == 2):
+        plt.ylabel( 'Max Memory / $k$' );
+        plt.yscale('log');
+        for i in range( 1, nalgs ):
+            for j in range( 0, len( Obj[ i ] ) ):
+                Obj[i][j] = Obj[i][j] / X[i][j];
+                ObjStd[i][j] = ObjStd[i][j] / X[i][j];
+
+    else:
+        plt.ylabel( 'Value / Greedy' );
+if normalizeX:
+    plt.xlabel( "$k / n$" );
+    for i in range( 1, nalgs ):
+        for j in range( 0, len( X[ i ] ) ):
+            X[i][j] = X[i][j] / nodes;
+else:
+    plt.xlabel( '$k$' );
+
+if which==0 and normalize==False:
+    #normalize by nodes
+    for i in range(0,nalgs):
+        for j in range( 0, len( Obj[ i ] ) ):
+            Obj[i][j] = Obj[i][j] / nodes;
+            ObjStd[i][j] = ObjStd[i][j] / nodes;
+            plt.ylabel( "Value / $n$" );            
+
+markSize=15;
+
+if normalize:
+    algmin = 1;
+    algmax = nalgs;
+    plt.ylim( 0.40, 1.05 );
+else:
+    algmin = 1;
+    algmax = nalgs;
+
+# if normalize:
+#     threeMarks=[2,6,7,8,9,10,4];
+# else:
+#     threeMarks=[2,6,7,8,9,10];
+
+print( nodes );
+
+if (which == 1):
+    #plt.axhline( nodes, color='r' );
+    ax = plt.gca();
+    #ax.annotate('$n$', xy=(float(kmin), nodes), xytext=(float(kmin)-75, nodes - 100000), size=15 );
+for i in range(algmin,algmax):
+    #mi=i + 2;
+    #mi=round(len(X[i]) / i) + 1;
+    # if i in threeMarks:
+    #     mi=round(len(X[i]) / 2) - 1;
+    # else:
+    #     mi=round(len(X[i]) / 3) - 1;
+        
+    #if (i == algmax - 1) and not normalize:
+    #mi = 4;
+    mi = 1;
+    plt.plot( X[i], Obj[i], linestyle = '-', linewidth=1, marker=markers[algnames[i]],  label=algnames[i],ms = markSize,color = colors[algnames[i]], markevery = mi);
+    BObj = np.asarray( Obj[i] );
+    BObjStd = np.asarray( ObjStd[i] );
+
+    plt.fill_between( X[i], BObj - BObjStd, BObj + BObjStd,
+                      alpha=0.2, edgecolor=colors[algnames[i]], facecolor=colors[algnames[i]]);
+
+
+#plt.errorbar( X, Obj, yerr=BObjStd, fmt='-');
+
+
+
+plt.gca().grid(which='major', axis='both', linestyle='--')
+
+
+#plt.grid(color='grey', linestyle='--' );
+if printlegend:
+    plt.legend(loc='best', numpoints=1,prop={'size':18},framealpha=0.8);
+
+plt.savefig( outFName, bbox_inches='tight' );
+#plt.legend(loc='best', numpoints=1,prop={'size':18},framealpha=1.0);
+#plt.savefig( 'WithLegend.png', bbox_inches='tight',dpi=500 );
